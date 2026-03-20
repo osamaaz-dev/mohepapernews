@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>منصة تصميم القرارات - سيد راسي</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+
+<body>
+
+    <h1 class="main-title">منصة تصميم القرارات</h1>
+    <h3 class="sub-title">تحكم كامل في وضع الصور وتجهيزها</h3>
+
+    <div class="main-container">
+        <aside class="sidebar-controls">
+            <div class="control-item">
+                <label>اختر صورة القرار (لصقها):</label>
+                <input type="file" id="imageInput" accept="image/*,application/pdf">
+            </div>
+            <div class="control-item">
+                <label>اختر القالب:</label>
+                <div class="template-grid">
+                    <img src="ورقة-قرار-جديد.png" class="template-option active" data-src="ورقة-قرار-جديد.png" onclick="changeTemplate(this)">
+                    <img src="ورقة-قرار.png" class="template-option" data-src="ورقة-قرار.png" onclick="changeTemplate(this)">
+                </div>
+            </div>
+
+            <div class="control-item">
+                <label>تكبير/تصغير (Zoom):</label>
+                <input type="range" id="scaleSlider" min="0.1" max="4" step="0.01" value="1">
+            </div>
+            <div class="control-item">
+                <label>3. تدوير الصورة (Rotate):</label>
+                <input type="range" id="rotateSlider" min="-180" max="180" step="1" value="0">
+            </div>
+
+            <div class="action-buttons">
+                <button id="downloadBtn">تحميل التصميم</button>
+                <button onclick="resetImage()" style="background: #427f77;">إعادة ضبط</button>
+            </div>
+        </aside>
+
+        <main class="preview-section">
+            <div class="preview-frame" id="frameContainer">
+                <div id="design">
+                    <canvas id="mainCanvas" width="1080" height="1350"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+// إعداد PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+const imageInput = document.getElementById('imageInput');
+const scaleSlider = document.getElementById('scaleSlider');
+const rotateSlider = document.getElementById('rotateSlider');
+const downloadBtn = document.getElementById('downloadBtn');
+const designDiv = document.getElementById('design');
+const frameContainer = document.getElementById('frameContainer');
+
+let templateImg = new Image();
+templateImg.src = 'ورقة-قرار-جديد.png'; // القالب الافتراضي
+let templateLoaded = false;
+
+let userImg = new Image();
+let userLoaded = false;
+let imgX = 168, imgY = 248, scale = 1, angle = 0;
+let isDragging = false, startX, startY;
+
+// دالة تغيير القالب
+function changeTemplate(element) {
+    // إزالة الحالة النشطة من الجميع وإضافتها للعنصر المختار
+    document.querySelectorAll('.template-option').forEach(img => img.classList.remove('active'));
+    element.classList.add('active');
+    
+    // تغيير مصدر صورة القالب وإعادة الرسم
+    templateLoaded = false;
+    templateImg.src = element.getAttribute('data-src');
+    templateImg.onload = () => {
+        templateLoaded = true;
+        drawAll();
+    };
+}
+
+function fitCanvasToFrame() {
+    const frameWidth = frameContainer.clientWidth;
+    const frameHeight = frameContainer.clientHeight;
+    const scaleFactor = Math.min(frameWidth / 1080, frameHeight / 1350); 
+    designDiv.style.transformOrigin = 'center'; 
+    designDiv.style.transform = `scale(${scaleFactor})`;
+}
+
+window.addEventListener('resize', fitCanvasToFrame);
+fitCanvasToFrame();
+
+templateImg.onload = () => { 
+    templateLoaded = true; 
+    drawAll(); 
+    fitCanvasToFrame(); 
+};
+
+// منطق الـ PDF
+async function handlePdf(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2 });
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.height = viewport.height;
+    tempCanvas.width = viewport.width;
+    await page.render({ canvasContext: tempCtx, viewport: viewport }).promise;
+    
+    userImg.onload = () => { userLoaded = true; resetImage(); };
+    userImg.src = tempCanvas.toDataURL();
+}
+
+imageInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type === "application/pdf") {
+        await handlePdf(file);
+    } else {
+        const reader = new FileReader();
+        reader.onload = (f) => {
+            userImg.onload = () => { userLoaded = true; resetImage(); };
+            userImg.src = f.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+function drawAll() {
+    if (!templateLoaded) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (userLoaded) {
+        ctx.save();
+        const centerX = imgX + (userImg.width * scale) / 2;
+        const centerY = imgY + (userImg.height * scale) / 2;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle * Math.PI / 180);
+        ctx.translate(-centerX, -centerY);
+        ctx.drawImage(userImg, imgX, imgY, userImg.width * scale, userImg.height * scale);
+        ctx.restore();
+    }
+    ctx.drawImage(templateImg, 0, 0, 1080, 1350);
+}
+
+function resetImage() {
+    if(!userLoaded) return;
+    scale = 0.5;
+    scaleSlider.value = 0.5;
+    angle = 0;
+    rotateSlider.value = 0;
+    imgX = 168; 
+    imgY = 248; 
+    drawAll();
+}
+
+canvas.addEventListener('mousedown', e => {
+    if (!userLoaded) return;
+    isDragging = true;
+    const rect = canvas.getBoundingClientRect();
+    const cssScale = 1080 / rect.width;
+    startX = (e.clientX - rect.left) * cssScale;
+    startY = (e.clientY - rect.top) * cssScale;
+});
+
+window.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mousemove', e => {
+    if (isDragging && userLoaded) {
+        const rect = canvas.getBoundingClientRect();
+        const cssScale = 1080 / rect.width;
+        const mouseX = (e.clientX - rect.left) * cssScale;
+        const mouseY = (e.clientY - rect.top) * cssScale;
+        imgX += (mouseX - startX);
+        imgY += (mouseY - startY);
+        startX = mouseX; startY = mouseY;
+        drawAll();
+    }
+});
+
+scaleSlider.addEventListener('input', (e) => { scale = parseFloat(e.target.value); drawAll(); });
+rotateSlider.addEventListener('input', (e) => { angle = parseInt(e.target.value); drawAll(); });
+
+downloadBtn.addEventListener('click', () => {
+    if (!userLoaded) return alert("يرجى اختيار ملف أولاً");
+    const link = document.createElement('a');
+    link.download = 'تصميم_القرار.png';
+    link.href = canvas.toDataURL('image/png', 1.0);
+    link.click();
+});
+    </script>
+</body>
+</html>
