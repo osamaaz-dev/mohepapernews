@@ -50,8 +50,7 @@
         </main>
     </div>
 
-    <script>
-// إعداد PDF.js
+    <script>// إعداد PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const canvas = document.getElementById('mainCanvas');
@@ -64,7 +63,7 @@ const designDiv = document.getElementById('design');
 const frameContainer = document.getElementById('frameContainer');
 
 let templateImg = new Image();
-templateImg.src = 'ورقة-قرار-جديد.png'; // القالب الافتراضي
+templateImg.src = 'ورقة-قرار-جديد.png'; 
 let templateLoaded = false;
 
 let userImg = new Image();
@@ -72,25 +71,12 @@ let userLoaded = false;
 let imgX = 168, imgY = 248, scale = 1, angle = 0;
 let isDragging = false, startX, startY;
 
-// دالة تغيير القالب
-function changeTemplate(element) {
-    // إزالة الحالة النشطة من الجميع وإضافتها للعنصر المختار
-    document.querySelectorAll('.template-option').forEach(img => img.classList.remove('active'));
-    element.classList.add('active');
-    
-    // تغيير مصدر صورة القالب وإعادة الرسم
-    templateLoaded = false;
-    templateImg.src = element.getAttribute('data-src');
-    templateImg.onload = () => {
-        templateLoaded = true;
-        drawAll();
-    };
-}
-
+// دالة موازنة الحجم للمعاينة وتوسيطها
 function fitCanvasToFrame() {
     const frameWidth = frameContainer.clientWidth;
     const frameHeight = frameContainer.clientHeight;
     const scaleFactor = Math.min(frameWidth / 1080, frameHeight / 1350); 
+    
     designDiv.style.transformOrigin = 'center'; 
     designDiv.style.transform = `scale(${scaleFactor})`;
 }
@@ -103,6 +89,18 @@ templateImg.onload = () => {
     drawAll(); 
     fitCanvasToFrame(); 
 };
+
+// تبديل القوالب
+function changeTemplate(element) {
+    document.querySelectorAll('.template-option').forEach(img => img.classList.remove('active'));
+    element.classList.add('active');
+    templateLoaded = false;
+    templateImg.src = element.getAttribute('data-src');
+    templateImg.onload = () => {
+        templateLoaded = true;
+        drawAll();
+    };
+}
 
 // منطق الـ PDF
 async function handlePdf(file) {
@@ -165,28 +163,53 @@ function resetImage() {
     drawAll();
 }
 
-canvas.addEventListener('mousedown', e => {
+// --- منطق التحريك الموحد (ماوس + لمس) ---
+
+function startDragging(x, y) {
     if (!userLoaded) return;
     isDragging = true;
     const rect = canvas.getBoundingClientRect();
     const cssScale = 1080 / rect.width;
-    startX = (e.clientX - rect.left) * cssScale;
-    startY = (e.clientY - rect.top) * cssScale;
-});
+    startX = (x - rect.left) * cssScale;
+    startY = (y - rect.top) * cssScale;
+}
 
-window.addEventListener('mouseup', () => isDragging = false);
-canvas.addEventListener('mousemove', e => {
+function moveDragging(x, y) {
     if (isDragging && userLoaded) {
         const rect = canvas.getBoundingClientRect();
         const cssScale = 1080 / rect.width;
-        const mouseX = (e.clientX - rect.left) * cssScale;
-        const mouseY = (e.clientY - rect.top) * cssScale;
+        const mouseX = (x - rect.left) * cssScale;
+        const mouseY = (y - rect.top) * cssScale;
+        
         imgX += (mouseX - startX);
         imgY += (mouseY - startY);
-        startX = mouseX; startY = mouseY;
+        startX = mouseX; 
+        startY = mouseY;
         drawAll();
     }
-});
+}
+
+// أحداث الماوس
+canvas.addEventListener('mousedown', e => startDragging(e.clientX, e.clientY));
+window.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mousemove', e => moveDragging(e.clientX, e.clientY));
+
+// أحداث اللمس للموبايل
+canvas.addEventListener('touchstart', e => {
+    const touch = e.touches[0];
+    startDragging(touch.clientX, touch.clientY);
+    e.preventDefault(); // منع اهتزاز الصفحة أثناء التحريك
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    const touch = e.touches[0];
+    moveDragging(touch.clientX, touch.clientY);
+    e.preventDefault();
+}, { passive: false });
+
+window.addEventListener('touchend', () => isDragging = false);
+
+// --- نهاية منطق التحريك ---
 
 scaleSlider.addEventListener('input', (e) => { scale = parseFloat(e.target.value); drawAll(); });
 rotateSlider.addEventListener('input', (e) => { angle = parseInt(e.target.value); drawAll(); });
