@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#094239">
+    <title>قالب ورقة القرارات</title>
+    <link href="images/logo.svg" rel="icon">
+    <link rel="stylesheet" href="style.css">
+    <!-- قارئ PDF يُحمَّل عند الحاجة من داخل app.js حتى لا يعطّل الصفحة إن تأخر الاتصال -->
+    <script defer src="templates.js"></script>
+    <script defer src="zip.js"></script>
+    <script defer src="telegram.config.js"></script>
+    <script defer src="app.js"></script>
+</head>
+
+<body>
+    <div class="bg-pattern" aria-hidden="true"></div>
+
+    <header class="topbar">
+        <img class="brand-mark" src="images/logo.svg" alt="" width="46" height="46">
+        <div class="brand-text">
+            <h1>قالب ورقة القرارات</h1>
+            <p>ضع القرار داخل قالب جاهز، اضبطه بإصبعك، ثم حمّله كصورة</p>
+        </div>
+    </header>
+
+    <main class="layout">
+
+        <!-- ═════════ المعاينة ═════════ -->
+        <section class="stage" id="stage" data-empty="true" aria-label="معاينة التصميم">
+            <div class="frame" id="frame">
+                <div class="canvas-wrap" id="canvasWrap">
+                    <canvas id="mainCanvas" width="1080" height="1350" tabindex="0"
+                        aria-label="معاينة التصميم. اسحب لتحريك الورقة، واستخدم الأسهم للتحريك و + و - للتكبير"></canvas>
+
+                    <button type="button" class="empty-cta" id="emptyCta">
+                        <svg class="ic"><use href="#i-upload" /></svg>
+                        <strong>ارفع القرار هنا</strong>
+                        <span>ملف PDF (عدة صفحات) أو صورة</span>
+                    </button>
+
+                    <div class="pager" id="pager" hidden>
+                        <button type="button" id="prevPage" aria-label="الصفحة السابقة"><svg class="ic"><use href="#i-chev-right" /></svg></button>
+                        <span id="pagerText">1 / 1</span>
+                        <button type="button" id="nextPage" aria-label="الصفحة التالية"><svg class="ic"><use href="#i-chev-left" /></svg></button>
+                    </div>
+
+                    <div class="gesture-tip" id="gestureTip" hidden>
+                        <svg class="ic"><use href="#i-pinch" /></svg>
+                        اقرص بإصبعين للتكبير
+                    </div>
+
+                    <div class="busy" id="busy" hidden>
+                        <div class="spinner"></div>
+                        <span id="busyText">جارٍ التحميل…</span>
+                    </div>
+
+                    <div class="drop-hint" aria-hidden="true"><svg class="ic"><use href="#i-upload" /></svg> أفلت الملف هنا</div>
+                </div>
+            </div>
+
+            <!-- شريط التكبير: يبقى ظاهراً تحت المعاينة (مهم على الموبايل) -->
+            <div class="quickbar" id="quickbar">
+                <button type="button" class="round-btn" id="zoomOut" aria-label="تصغير"><svg class="ic"><use href="#i-minus" /></svg></button>
+                <input type="range" id="zoomSlider" min="0" max="1000" step="1" value="500" aria-label="التكبير والتصغير">
+                <button type="button" class="round-btn" id="zoomIn" aria-label="تكبير"><svg class="ic"><use href="#i-plus" /></svg></button>
+                <output class="zoom-value" id="zoomValue" for="zoomSlider">100%</output>
+            </div>
+            <p class="hint">
+                <span class="hint-touch">اسحب لتحريك الورقة · اقرص بإصبعين للتكبير</span>
+                <span class="hint-mouse">اسحب لتحريك الورقة · عجلة الماوس أو الشريط للتكبير</span>
+            </p>
+        </section>
+
+        <!-- ═════════ لوحة التحكم ═════════ -->
+        <aside class="panel" id="panel" data-empty="true">
+
+            <section class="card" id="cardFile">
+                <h2><span class="step">1</span> اختر القرار</h2>
+                <label class="dropzone" id="dropzone" for="fileInput">
+                    <svg class="ic ic-lg"><use href="#i-upload" /></svg>
+                    <span class="dz-title">اضغط لاختيار الملف</span>
+                    <span class="dz-sub">أو اسحبه وأفلته هنا · يمكنك أيضاً لصق صورة (Ctrl+V)</span>
+                </label>
+                <input type="file" id="fileInput" accept="application/pdf,image/*" multiple hidden>
+
+                <div class="file-summary" id="fileSummary" hidden>
+                    <svg class="ic"><use href="#i-file" /></svg>
+                    <div class="fs-text">
+                        <strong id="fsName">—</strong>
+                        <small id="fsMeta">—</small>
+                    </div>
+                    <button type="button" class="chip-btn" id="addMore"><svg class="ic"><use href="#i-plus" /></svg> إضافة</button>
+                    <button type="button" class="chip-btn danger" id="clearAll" aria-label="مسح الملفات"><svg class="ic"><use href="#i-trash" /></svg></button>
+                </div>
+            </section>
+
+            <section class="card" id="cardPages" hidden>
+                <h2><svg class="ic"><use href="#i-layers" /></svg> الصفحات <small id="pagesCount"></small></h2>
+                <div class="pages-strip" id="pagesStrip" role="listbox" aria-label="صفحات الملف"></div>
+                <label class="switch">
+                    <input type="checkbox" id="syncToggle" checked>
+                    <span class="switch-ui" aria-hidden="true"></span>
+                    <span class="switch-text">تطبيق التعديلات على كل الصفحات</span>
+                </label>
+                <button type="button" class="link-btn" id="removePage"><svg class="ic"><use href="#i-trash" /></svg> حذف هذه الصفحة</button>
+            </section>
+
+            <section class="card" id="cardTemplates">
+                <h2><span class="step">2</span> اختر القالب</h2>
+                <div class="tpl-list" id="tplList" role="radiogroup" aria-label="القوالب"></div>
+            </section>
+
+            <section class="card" id="cardAdjust">
+                <h2><span class="step">3</span> المحاذاة والضبط</h2>
+
+                <div class="field-label">محاذاة تلقائية</div>
+                <div class="align-grid" id="alignGrid">
+                    <button type="button" class="tile" data-mode="fit" aria-pressed="false"><svg class="ic"><use href="#i-fit" /></svg><span>ملاءمة الصفحة</span></button>
+                    <button type="button" class="tile" data-mode="fill" aria-pressed="false"><svg class="ic"><use href="#i-fill" /></svg><span>ملء الإطار</span></button>
+                    <button type="button" class="tile" data-mode="width" aria-pressed="false"><svg class="ic"><use href="#i-width" /></svg><span>عرض كامل</span></button>
+                    <button type="button" class="tile" data-mode="trim" aria-pressed="false"><svg class="ic"><use href="#i-crop" /></svg><span>قص الهوامش</span></button>
+                </div>
+
+                <div class="field-row">
+                    <div class="field-label">التدوير <output id="rotValue">0°</output></div>
+                </div>
+                <div class="rotbar">
+                    <button type="button" class="round-btn" id="rotLeft" aria-label="تدوير 90 درجة عكس عقارب الساعة"><svg class="ic"><use href="#i-rot-ccw" /></svg></button>
+                    <input type="range" id="rotSlider" min="-45" max="45" step="0.5" value="0" aria-label="تدوير دقيق">
+                    <button type="button" class="round-btn" id="rotRight" aria-label="تدوير 90 درجة مع عقارب الساعة"><svg class="ic"><use href="#i-rot-cw" /></svg></button>
+                </div>
+
+                <div class="btn-row">
+                    <button type="button" class="btn btn-ghost" id="centerBtn"><svg class="ic"><use href="#i-center" /></svg> توسيط</button>
+                    <button type="button" class="btn btn-ghost" id="resetBtn"><svg class="ic"><use href="#i-reset" /></svg> إعادة ضبط</button>
+                </div>
+            </section>
+
+            <section class="card" id="cardExport">
+                <h2><span class="step">4</span> التحميل</h2>
+                <div class="export-actions">
+                    <button type="button" class="btn btn-primary" id="downloadBtn"><svg class="ic"><use href="#i-download" /></svg> <span id="downloadLabel">تحميل الصورة</span></button>
+                    <button type="button" class="btn btn-gold" id="downloadAllBtn" hidden><svg class="ic"><use href="#i-layers" /></svg> تحميل كل الصفحات (ZIP)</button>
+                    <button type="button" class="btn btn-ghost" id="shareBtn" hidden><svg class="ic"><use href="#i-share" /></svg> مشاركة</button>
+                </div>
+                <p class="note" id="exportNote">صورة PNG بجودة كاملة</p>
+
+                <div class="tg-block" id="tgBlock">
+                    <div class="tg-head">
+                        <svg class="ic"><use href="#i-send" /></svg>
+                        <strong>إرسال إلى تلغرام كملف</strong>
+                        <button type="button" class="link-btn neutral" id="tgSettings"><svg class="ic"><use href="#i-sliders" /></svg> إعداد</button>
+                    </div>
+                    <div class="tg-actions">
+                        <button type="button" class="btn btn-tg" id="tgSendOne"><svg class="ic"><use href="#i-send" /></svg> <span id="tgSendOneLabel">إرسال الصورة</span></button>
+                        <button type="button" class="btn btn-tg" id="tgSendAll" hidden><svg class="ic"><use href="#i-layers" /></svg> <span id="tgSendAllLabel">كل الصفحات</span></button>
+                    </div>
+                    <p class="note" id="tgStatus"></p>
+                </div>
+            </section>
+        </aside>
+    </main>
+
+    <dialog class="dialog" id="tgDialog" aria-labelledby="tgTitle">
+        <form class="dlg-body" id="tgForm" autocomplete="off">
+            <h3 id="tgTitle"><svg class="ic"><use href="#i-send" /></svg> الإرسال إلى تلغرام كملف</h3>
+            <p class="dlg-intro">يُرسَل التصميم كـ«مستند» (Document) فيصل بجودته الكاملة دون ضغط. يلزمك بوت خاص بك، وتُجري الإعداد مرة واحدة:</p>
+            <ol class="dlg-steps">
+                <li>افتح <b dir="ltr">@BotFather</b> في تلغرام وأرسل <code>/newbot</code>، ثم انسخ <b>الرمز (Token)</b> الذي يعطيك إياه.</li>
+                <li>للقناة: أضف البوت <b>مشرفاً</b> بصلاحية «نشر الرسائل». للمحادثة الخاصة: افتح البوت واضغط <b>Start</b>.</li>
+                <li>اكتب معرّف القناة (مثل <code>@my_channel</code>) أو رقم المحادثة.</li>
+            </ol>
+
+            <label class="dlg-field">
+                <span>رمز البوت (Token)</span>
+                <input type="password" id="tgToken" name="bot-token" dir="ltr" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="123456789:AA…" data-lpignore="true" data-1p-ignore>
+            </label>
+            <label class="dlg-field">
+                <span>القناة أو المحادثة</span>
+                <input type="text" id="tgChat" name="chat-id" dir="ltr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="@my_channel">
+            </label>
+
+            <label class="switch">
+                <input type="checkbox" id="tgRemember" checked>
+                <span class="switch-ui" aria-hidden="true"></span>
+                <span class="switch-text">تذكّر في هذا المتصفح</span>
+            </label>
+            <p class="dlg-warn">يُحفظ الرمز في متصفحك أنت فقط ولا يُرسَل إلا إلى تلغرام. لا تحفظه على جهاز عام، ولا تشاركه: من يملكه يستطيع النشر باسم البوت. الأفضل إنشاء بوت مخصص لهذا الغرض.</p>
+
+            <p class="dlg-result" id="tgResult" role="status" aria-live="polite"></p>
+
+            <div class="dlg-actions">
+                <button type="submit" class="btn btn-primary" id="tgSave">حفظ</button>
+                <button type="button" class="btn btn-ghost" id="tgTest">اختبار الاتصال</button>
+                <button type="button" class="btn btn-ghost" id="tgCancel">إلغاء</button>
+            </div>
+            <button type="button" class="link-btn" id="tgForget"><svg class="ic"><use href="#i-trash" /></svg> مسح البيانات المحفوظة</button>
+        </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <!-- أيقونات -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+            <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+            <symbol id="i-rot-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></symbol>
+            <symbol id="i-rot-cw" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></symbol>
+            <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><rect x="8" y="7" width="8" height="10" rx="1"/></symbol>
+            <symbol id="i-fill" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m3 9 6-6M3 15 15 3M9 21 21 9M15 21l6-6"/></symbol>
+            <symbol id="i-width" viewBox="0 0 24 24"><path d="m18 8 4 4-4 4"/><path d="M2 12h20"/><path d="m6 8-4 4 4 4"/></symbol>
+            <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></symbol>
+            <symbol id="i-center" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.2"/></symbol>
+            <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M8 16H3v5"/></symbol>
+            <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+            <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+            <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
+            <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+            <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+            <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+            <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+            <symbol id="i-pinch" viewBox="0 0 24 24"><path d="M4 4l6 6M4 4v4M4 4h4"/><path d="M20 20l-6-6M20 20v-4M20 20h-4"/></symbol>
+        </defs>
+    </svg>
+</body>
+</html>
