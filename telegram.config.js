@@ -1,6 +1,6 @@
 // الوجهة الافتراضية للإرسال إلى تلغرام. ظاهرة لكل من يفتح الموقع (قرار صاحب الموقع).
 // لتعطيلها احذف القيمتين. ما يُحفظ من نافذة «إعداد» في المتصفح يتقدّم عليها.
 window.TELEGRAM_DEFAULT = {
-    token: '8320697814:AAGq5UTVDyzTWnL1FmiKHomrgKst7ddVsFM',
+    token: '8320697814:AAHELbyqp_6TiTbcJ-yjTWXx1qW9ySbS3yk',
     chat: '-1003557221315',
 };
